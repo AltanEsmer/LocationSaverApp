@@ -1,3 +1,7 @@
+# ==========================================
+# Existing rules
+# ==========================================
+
 # Compiled class file
 *.class
 
@@ -19,9 +23,125 @@
 *.tar.gz
 *.rar
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+# virtual machine crash logs
 hs_err_pid*
 replay_pid*
 
-# Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
-.kotlin/
+# Kotlin Gradle plugin data
+.kotlin/ 
+
+
+# ==========================================
+# Android/Gradle/IDE Specific
+# ==========================================
+
+# Build directories (Gradle)
+build/
+*/build/
+*/out/
+
+# Gradle caches and logs
+.gradle/
+.gradle/*
+
+# Local Gradle properties (user-specific, contains keys)
+gradle.properties
+local.properties
+
+# Gradle Wrapper JAR files
+gradle/wrapper/gradle-wrapper.properties
+gradle/wrapper/gradle-wrapper.jar
+
+# Distribution directory
+/distributions/
+.gradle-cache/
+
+# ==========================================
+# Android Studio / IntelliJ IDEA
+# ==========================================
+
+# Project files
+.idea/
+.idea/*
+
+# Workspace and tasks
+*.iml
+*.ipr
+*.iws
+
+# Android Studio build artifacts
+.cxx/
+captures/
+.externalNativeBuild/
+.navigation/
+.metadata/
+.DS_Store
+
+# ==========================================
+# Android Generated & Intermediate Files
+# ==========================================
+
+# APK / AAB / App Bundles
+*.apk
+*.ap_
+*.aab
+
+# ProGuard / R8
+proguard/
+*.pro
+
+# Keystore files (keep only if needed manually)
+*.jks
+*.keystore
+
+# Annotation processing (KAPT, Room schemas, generated code)
+kapt/
+kaptGenerated/
+kaptKotlin/
+roomSchemas/
+generated/
+
+# Android build intermediates
+intermediates/
+outputs/
+tmp/
+tmpBuild/
+
+# NDK / CMake
+.obj/
+*.so
+*.o
+
+# ==========================================
+# Miscellaneous / Cache
+# ==========================================
+
+# Log files
+*.log
+log/
+logs/
+
+# OS-specific
+Thumbs.db
+ehthumbs.db
+*.swp
+*.swo
+
+# Crashlytics / Firebase
+crashlytics-build.properties
+fabric.properties
+
+# Google Services (contains sensitive info, generated per project)
+google-services.json
+
+# ==========================================
+# Debug / Release
+# ==========================================
+
+# Release artifacts
+release/
+app/release/
+
+# Debug artifacts
+debug/
+app/debug/
