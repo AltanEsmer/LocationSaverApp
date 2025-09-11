@@ -26,23 +26,37 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerManagementScreen(
-    viewModel: CustomerViewModel = viewModel()
+    viewModel: CustomerViewModel = viewModel(),
+    showAddDialog: Boolean = false,
+    onDialogDismiss: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val customers by viewModel.customers.collectAsState()
-    var showAddCustomerDialog by remember { mutableStateOf(false) }
+    var showAddCustomerDialog by remember { mutableStateOf(showAddDialog) }
     var selectedCustomer by remember { mutableStateOf<CustomerEntity?>(null) }
     var showEditCustomerDialog by remember { mutableStateOf(false) }
     var showFavoritesOnly by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     
+    // Watch for changes in showAddDialog parameter
+    LaunchedEffect(showAddDialog) {
+        if (showAddDialog) {
+            android.util.Log.d("CustomerScreen", "showAddDialog changed to true, setting showAddCustomerDialog = true")
+            showAddCustomerDialog = true
+        }
+    }
+    
     // Show add customer dialog
     if (showAddCustomerDialog) {
         AddCustomerDialog(
-            onDismiss = { showAddCustomerDialog = false },
+            onDismiss = { 
+                showAddCustomerDialog = false
+                onDialogDismiss()
+            },
             onSave = { name, phone, email, address, notes ->
                 viewModel.addCustomer(name, phone, email, address, notes)
                 showAddCustomerDialog = false
+                onDialogDismiss()
             }
         )
     }

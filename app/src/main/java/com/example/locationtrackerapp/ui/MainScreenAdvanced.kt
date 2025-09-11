@@ -35,6 +35,12 @@ fun MainScreenAdvanced(
     var selectedTab by remember { mutableStateOf(0) }
     var showSaveDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showSearchDialog by remember { mutableStateOf(false) }
+    var showAddOrderDialog by remember { mutableStateOf(false) }
+    var showAddCustomerDialog by remember { mutableStateOf(false) }
+    var showLocationTestDialog by remember { mutableStateOf(false) }
+    var showDataManagementDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
     
     val tabs = listOf(
         TabItem("Konumlar", Icons.Default.LocationOn),
@@ -48,7 +54,10 @@ fun MainScreenAdvanced(
             TopAppBar(
                 title = { Text("Uriel Cafe Delivery") },
                 actions = {
-                    IconButton(onClick = { /* Search functionality - TODO: Implement search */ }) {
+                    IconButton(onClick = { showLocationTestDialog = true }) {
+                        Icon(Icons.Default.LocationOn, contentDescription = "Test Location")
+                    }
+                    IconButton(onClick = { showSearchDialog = true }) {
                         Icon(Icons.Default.Search, contentDescription = "Search")
                     }
                     IconButton(onClick = { showSettingsDialog = true }) {
@@ -72,17 +81,25 @@ fun MainScreenAdvanced(
         floatingActionButton = {
             when (selectedTab) {
                 0 -> FloatingActionButton(
-                    onClick = { showSaveDialog = true }
+                    onClick = { 
+                        showSaveDialog = true
+                    }
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Location")
                 }
                 1 -> FloatingActionButton(
-                    onClick = { /* Add order functionality is in OrderManagementScreen */ }
+                    onClick = { 
+                        android.util.Log.d("MainScreen", "Order FAB clicked, setting showAddOrderDialog = true")
+                        showAddOrderDialog = true
+                    }
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Order")
                 }
                 2 -> FloatingActionButton(
-                    onClick = { /* Add customer functionality is in CustomerManagementScreen */ }
+                    onClick = { 
+                        android.util.Log.d("MainScreen", "Customer FAB clicked, setting showAddCustomerDialog = true")
+                        showAddCustomerDialog = true
+                    }
                 ) {
                     Icon(Icons.Default.Person, contentDescription = "Add Customer")
                 }
@@ -96,8 +113,18 @@ fun MainScreenAdvanced(
         ) {
             when (selectedTab) {
                 0 -> LocationsTab(viewModel = viewModel)
-                1 -> OrderManagementScreen()
-                2 -> CustomerManagementScreen()
+                1 -> OrderManagementScreen(
+                    showAddDialog = showAddOrderDialog, 
+                    onDialogDismiss = { 
+                        showAddOrderDialog = false
+                    }
+                )
+                2 -> CustomerManagementScreen(
+                    showAddDialog = showAddCustomerDialog, 
+                    onDialogDismiss = { 
+                        showAddCustomerDialog = false
+                    }
+                )
                 3 -> RoutePlanningScreen()
             }
         }
@@ -114,10 +141,53 @@ fun MainScreenAdvanced(
         )
     }
     
+    // Show search dialog
+    if (showSearchDialog) {
+        SearchDialog(
+            onDismiss = { showSearchDialog = false },
+            onSearch = { query ->
+                // Handle search based on current tab
+                when (selectedTab) {
+                    0 -> viewModel.searchLocations(query)
+                    1 -> { /* Order search handled in OrderManagementScreen */ }
+                    2 -> { /* Customer search handled in CustomerManagementScreen */ }
+                }
+                showSearchDialog = false
+            }
+        )
+    }
+    
+    
+    // Show location test dialog
+    if (showLocationTestDialog) {
+        LocationTestDialog(
+            viewModel = viewModel,
+            onDismiss = { showLocationTestDialog = false }
+        )
+    }
+    
+    // Show about dialog
+    if (showAboutDialog) {
+        AboutDialog(
+            onDismiss = { showAboutDialog = false }
+        )
+    }
+    
+    // Show data management dialog
+    if (showDataManagementDialog) {
+        DataManagementDialog(
+            onDismiss = { showDataManagementDialog = false },
+            viewModel = viewModel
+        )
+    }
+    
     // Show settings dialog
     if (showSettingsDialog) {
         SettingsDialog(
-            onDismiss = { showSettingsDialog = false }
+            onDismiss = { showSettingsDialog = false },
+            onDataManagementClick = { showDataManagementDialog = true },
+            onAboutClick = { showAboutDialog = true },
+            onLocationTestClick = { showLocationTestDialog = true }
         )
     }
 }
@@ -288,10 +358,11 @@ fun LocationsTab(
  */
 @Composable
 fun SettingsDialog(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onDataManagementClick: () -> Unit = {},
+    onAboutClick: () -> Unit = {},
+    onLocationTestClick: () -> Unit = {}
 ) {
-    var showAboutDialog by remember { mutableStateOf(false) }
-    var showDataManagementDialog by remember { mutableStateOf(false) }
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -374,17 +445,31 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { showDataManagementDialog = true },
+                        onClick = onDataManagementClick,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Data")
                     }
                     
                     OutlinedButton(
-                        onClick = { showAboutDialog = true },
+                        onClick = onAboutClick,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("About")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Testing buttons
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onLocationTestClick,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Test Location")
                     }
                 }
             }
@@ -395,20 +480,6 @@ fun SettingsDialog(
             }
         }
     )
-    
-    // About dialog
-    if (showAboutDialog) {
-        AboutDialog(
-            onDismiss = { showAboutDialog = false }
-        )
-    }
-    
-    // Data management dialog
-    if (showDataManagementDialog) {
-        DataManagementDialog(
-            onDismiss = { showDataManagementDialog = false }
-        )
-    }
 }
 
 /**
@@ -457,11 +528,163 @@ fun AboutDialog(
 }
 
 /**
+ * Location test dialog for testing and debugging location functionality.
+ */
+@Composable
+fun LocationTestDialog(
+    viewModel: MainViewModel,
+    onDismiss: () -> Unit
+) {
+    var currentLocation by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Location Test")
+        },
+        text = {
+            Column {
+                Text("Test your device's location capabilities:")
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                if (isLoading) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Getting location...")
+                    }
+                } else if (currentLocation != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Text(
+                                text = "Current Location:",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Latitude: ${String.format("%.6f", currentLocation!!.first)}")
+                            Text("Longitude: ${String.format("%.6f", currentLocation!!.second)}")
+                        }
+                    }
+                } else if (error != null) {
+                    Text(
+                        text = "Error: $error",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    Text("Tap 'Get Location' to test location services")
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "Instructions:",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text("1. Move to a different location")
+                Text("2. Tap 'Get Location' to see current coordinates")
+                Text("3. Save a location with a different name")
+                Text("4. Check if coordinates are different")
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    isLoading = true
+                    error = null
+                    // Get current location
+                    viewModel.getCurrentLocationForTesting(
+                        onSuccess = { lat, lng ->
+                            currentLocation = Pair(lat, lng)
+                            isLoading = false
+                        },
+                        onError = { errorMessage ->
+                            error = errorMessage
+                            isLoading = false
+                        }
+                    )
+                }
+            ) {
+                Text("Get Location")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+/**
+ * Search dialog for searching across different tabs.
+ */
+@Composable
+fun SearchDialog(
+    onDismiss: () -> Unit,
+    onSearch: (String) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Search")
+        },
+        text = {
+            Column {
+                Text("Enter your search query:")
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Search term") },
+                    placeholder = { Text("e.g., customer name, location, order number") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (searchQuery.isNotEmpty()) {
+                        onSearch(searchQuery)
+                    }
+                }
+            ) {
+                Text("Search")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
  * Data management dialog.
  */
 @Composable
 fun DataManagementDialog(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    viewModel: MainViewModel? = null
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -480,7 +703,16 @@ fun DataManagementDialog(
                 Text("• All data is stored locally on your device")
                 Text("• No data is sent to external servers")
                 Text("• You can export/import data (coming soon)")
-                Text("• Clear all data option (coming soon)")
+                
+                if (viewModel != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Testing Tools:",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text("• Clear all locations for testing")
+                }
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
@@ -496,8 +728,26 @@ fun DataManagementDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("OK")
+            if (viewModel != null) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.clearAllLocations()
+                            onDismiss()
+                        }
+                    ) {
+                        Text("Clear All Locations")
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text("OK")
+                    }
+                }
+            } else {
+                TextButton(onClick = onDismiss) {
+                    Text("OK")
+                }
             }
         }
     )

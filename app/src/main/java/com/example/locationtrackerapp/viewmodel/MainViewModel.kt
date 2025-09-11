@@ -37,6 +37,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _savedLocations = MutableStateFlow<List<LocationEntity>>(emptyList())
     val savedLocations: StateFlow<List<LocationEntity>> = _savedLocations.asStateFlow()
     
+    // Search query
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    
+    // All locations (for filtering)
+    private val _allLocations = MutableStateFlow<List<LocationEntity>>(emptyList())
+    
     init {
         // Initialize database and repository
         val database = LocationDatabase.getDatabase(application)
@@ -59,9 +66,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadSavedLocations() {
         viewModelScope.launch {
             locationRepository.getAllLocations().collect { locations ->
-                _savedLocations.value = locations
+                _allLocations.value = locations
+                filterLocations()
             }
         }
+    }
+    
+    /**
+     * Filter locations based on search query.
+     */
+    private fun filterLocations() {
+        val query = _searchQuery.value.lowercase()
+        val allLocations = _allLocations.value
+        
+        val filtered = if (query.isEmpty()) {
+            allLocations
+        } else {
+            allLocations.filter { location ->
+                location.name.lowercase().contains(query) ||
+                location.address.lowercase().contains(query) ||
+                location.notes.lowercase().contains(query)
+            }
+        }
+        
+        _savedLocations.value = filtered
     }
     
     /**
@@ -82,12 +110,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 
-                val location = locationService.getCurrentLocation()
+                val location = locationService.getFreshLocation()
+                
+                // Debug logging
+                android.util.Log.d("LocationSaver", "Saving location: $name at ${location.latitude}, ${location.longitude}")
+                
                 val locationId = locationRepository.saveLocation(
                     name = name,
                     latitude = location.latitude,
                     longitude = location.longitude
                 )
+                // Refresh the filtered list
+                loadSavedLocations()
+                
+                // Debug: Check all saved locations
+                val allLocations = locationRepository.getAllLocationsSync()
+                android.util.Log.d("LocationSaver", "All saved locations: ${allLocations.map { "${it.name}: ${it.latitude}, ${it.longitude}" }}")
                 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -155,6 +193,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun clearLastSavedLocationId() {
         _uiState.value = _uiState.value.copy(lastSavedLocationId = null)
+    }
+    
+    /**
+     * Search locations by name or address.
+     * 
+     * @param query Search query
+     */
+    fun searchLocations(query: String) {
+        _searchQuery.value = query
+        filterLocations()
+    }
+    
+    /**
+     * Get current location for testing purposes.
+     * 
+     * @param onSuccess Callback with latitude and longitude
+     * @param onError Callback with error message
+     */
+    fun getCurrentLocationForTesting(
+        onSuccess: (Double, Double) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                if (!locationService.hasLocationPermissions()) {
+                    onError("Location permissions not granted")
+                    return@launch
+                }
+                
+                val location = locationService.getFreshLocation()
+                onSuccess(location.latitude, location.longitude)
+                
+            } catch (e: Exception) {
+                onError("Failed to get location: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * Clear all saved locations for testing purposes.
+     */
+    fun clearAllLocations() {
+        viewModelScope.launch {
+            try {
+                locationRepository.deleteAllLocations()
+                android.util.Log.d("LocationSaver", "All locations cleared")
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to clear locations: ${e.message}"
+                )
+            }
+        }
     }
 }
 

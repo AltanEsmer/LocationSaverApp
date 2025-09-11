@@ -256,7 +256,7 @@ fun LocationItem(
                 )
                 
                 Text(
-                    text = formatTimestamp(location.timestamp),
+                    text = "ID: ${location.id} • Saved: ${formatTimestamp(location.timestamp)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -26,6 +26,13 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
     private val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
     val customers: StateFlow<List<CustomerEntity>> = _customers.asStateFlow()
     
+    // Search query
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    
+    // All customers (for filtering)
+    private val _allCustomers = MutableStateFlow<List<CustomerEntity>>(emptyList())
+    
     init {
         val database = LocationDatabase.getDatabase(application)
         customerRepository = CustomerRepository(database.customerDao())
@@ -39,9 +46,32 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
     private fun loadCustomers() {
         viewModelScope.launch {
             customerRepository.getAllCustomers().collect { customers ->
-                _customers.value = customers
+                _allCustomers.value = customers
+                filterCustomers()
             }
         }
+    }
+    
+    /**
+     * Filter customers based on search query.
+     */
+    private fun filterCustomers() {
+        val query = _searchQuery.value.lowercase()
+        val allCustomers = _allCustomers.value
+        
+        val filtered = if (query.isEmpty()) {
+            allCustomers
+        } else {
+            allCustomers.filter { customer ->
+                customer.name.lowercase().contains(query) ||
+                customer.phone.lowercase().contains(query) ||
+                customer.email.lowercase().contains(query) ||
+                customer.address.lowercase().contains(query) ||
+                customer.notes.lowercase().contains(query)
+            }
+        }
+        
+        _customers.value = filtered
     }
     
     /**
@@ -64,6 +94,8 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
                     notes = notes
                 )
                 customerRepository.insertCustomer(customer)
+                // Refresh the filtered list
+                loadCustomers()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to add customer: ${e.message}"
@@ -79,6 +111,8 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 customerRepository.updateCustomer(customer)
+                // Refresh the filtered list
+                loadCustomers()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to update customer: ${e.message}"
@@ -94,6 +128,8 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 customerRepository.updateFavoriteStatus(customerId, isFavorite)
+                // Refresh the filtered list
+                loadCustomers()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to update favorite status: ${e.message}"
@@ -109,6 +145,8 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 customerRepository.deleteCustomerById(customerId)
+                // Refresh the filtered list
+                loadCustomers()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to delete customer: ${e.message}"
@@ -121,11 +159,8 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
      * Search customers.
      */
     fun searchCustomers(query: String) {
-        viewModelScope.launch {
-            customerRepository.searchCustomers(query).collect { customers ->
-                _customers.value = customers
-            }
-        }
+        _searchQuery.value = query
+        filterCustomers()
     }
     
     /**

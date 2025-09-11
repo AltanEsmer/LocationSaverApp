@@ -1,5 +1,6 @@
 package com.example.locationtrackerapp.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,9 +15,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.locationtrackerapp.data.OrderEntity
 import com.example.locationtrackerapp.data.OrderStatus
+import com.example.locationtrackerapp.data.LocationEntity
 import com.example.locationtrackerapp.viewmodel.OrderViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -27,23 +30,39 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderManagementScreen(
-    viewModel: OrderViewModel = viewModel()
+    viewModel: OrderViewModel = viewModel(),
+    showAddDialog: Boolean = false,
+    onDialogDismiss: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val orders by viewModel.orders.collectAsState()
-    var showAddOrderDialog by remember { mutableStateOf(false) }
+    val locations by viewModel.locations.collectAsState()
+    val context = LocalContext.current
+    var showAddOrderDialog by remember { mutableStateOf(showAddDialog) }
     var selectedOrder by remember { mutableStateOf<OrderEntity?>(null) }
     var showEditOrderDialog by remember { mutableStateOf(false) }
-    var selectedStatus by remember { mutableStateOf(OrderStatus.PENDING) }
+    
+    // Watch for changes in showAddDialog parameter
+    LaunchedEffect(showAddDialog) {
+        if (showAddDialog) {
+            android.util.Log.d("OrderScreen", "showAddDialog changed to true, setting showAddOrderDialog = true")
+            showAddOrderDialog = true
+        }
+    }
     
     // Show add order dialog
     if (showAddOrderDialog) {
         AddOrderDialog(
-            onDismiss = { showAddOrderDialog = false },
+            onDismiss = { 
+                showAddOrderDialog = false
+                onDialogDismiss()
+            },
             onSave = { customerName, customerPhone, orderNumber, notes, locationId ->
                 viewModel.addOrder(customerName, customerPhone, orderNumber, notes, locationId)
                 showAddOrderDialog = false
-            }
+                onDialogDismiss()
+            },
+            availableLocations = locations
         )
     }
     
@@ -68,28 +87,6 @@ fun OrderManagementScreen(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Status filter chips
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OrderStatus.values().forEach { status ->
-                FilterChip(
-                    onClick = { selectedStatus = status },
-                    label = { Text(getStatusText(status)) },
-                    selected = selectedStatus == status,
-                    leadingIcon = {
-                        Icon(
-                            getStatusIcon(status),
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
-            }
-        }
         
         // Orders list
         if (orders.isEmpty()) {
@@ -126,9 +123,13 @@ fun OrderManagementScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(orders.filter { it.status == selectedStatus }) { order ->
+                items(orders) { order ->
+                    val orderLocation = order.locationId?.let { locationId ->
+                        locations.find { it.id == locationId }
+                    }
                     OrderItem(
                         order = order,
+                        location = orderLocation,
                         onOrderClick = { 
                             selectedOrder = order
                             showEditOrderDialog = true
@@ -138,6 +139,11 @@ fun OrderManagementScreen(
                         },
                         onDeleteClick = {
                             viewModel.deleteOrder(order.id)
+                        },
+                        onOpenInMaps = { location ->
+                            viewModel.openLocationInMaps(location)?.let { intent ->
+                                context.startActivity(intent)
+                            }
                         }
                     )
                 }
@@ -153,9 +159,11 @@ fun OrderManagementScreen(
 @Composable
 fun OrderItem(
     order: OrderEntity,
+    location: LocationEntity?,
     onOrderClick: () -> Unit,
     onStatusChange: (OrderStatus) -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onOpenInMaps: (LocationEntity) -> Unit = {}
 ) {
     Card(
         onClick = onOrderClick,
@@ -185,6 +193,43 @@ fun OrderItem(
                     if (order.customerPhone.isNotEmpty()) {
                         Text(
                             text = order.customerPhone,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    // Location information
+                    location?.let { loc ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.LocationOn,
+                                contentDescription = "Delivery Location",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = loc.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = { onOpenInMaps(loc) },
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text(
+                                    text = "Open in Maps",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Lat: ${String.format("%.6f", loc.latitude)}, Lng: ${String.format("%.6f", loc.longitude)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -278,12 +323,14 @@ fun StatusChip(status: OrderStatus) {
 @Composable
 fun AddOrderDialog(
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String, Long?) -> Unit
+    onSave: (String, String, String, String, Long?) -> Unit,
+    availableLocations: List<LocationEntity> = emptyList()
 ) {
     var customerName by remember { mutableStateOf("") }
     var customerPhone by remember { mutableStateOf("") }
     var orderNumber by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var selectedLocationId by remember { mutableStateOf<Long?>(null) }
     var isError by remember { mutableStateOf(false) }
     
     AlertDialog(
@@ -326,6 +373,57 @@ fun AddOrderDialog(
                     maxLines = 3
                 )
                 
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Location selection
+                Text(
+                    text = "Delivery Location:",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                if (availableLocations.isEmpty()) {
+                    Text(
+                        text = "No locations available. Save a location first.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                    ) {
+                        availableLocations.forEach { location ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedLocationId = location.id },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedLocationId == location.id,
+                                    onClick = { selectedLocationId = location.id }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = location.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "Lat: ${String.format("%.6f", location.latitude)}, Lng: ${String.format("%.6f", location.longitude)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 if (isError) {
                     Text(
                         text = "Customer name is required",
@@ -339,7 +437,7 @@ fun AddOrderDialog(
             TextButton(
                 onClick = {
                     if (customerName.isNotEmpty()) {
-                        onSave(customerName, customerPhone, orderNumber, notes, null)
+                        onSave(customerName, customerPhone, orderNumber, notes, selectedLocationId)
                     } else {
                         isError = true
                     }

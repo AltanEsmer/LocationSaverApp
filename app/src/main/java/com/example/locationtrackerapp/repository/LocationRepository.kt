@@ -31,12 +31,15 @@ class LocationRepository(private val locationDao: LocationDao) {
      * @return The ID of the saved location
      */
     suspend fun saveLocation(name: String, latitude: Double, longitude: Double): Long {
+        android.util.Log.d("LocationRepository", "Saving location: $name at $latitude, $longitude")
         val location = LocationEntity(
             name = name,
             latitude = latitude,
             longitude = longitude
         )
-        return locationDao.insertLocation(location)
+        val locationId = locationDao.insertLocation(location)
+        android.util.Log.d("LocationRepository", "Location saved with ID: $locationId")
+        return locationId
     }
     
     /**
@@ -58,4 +61,21 @@ class LocationRepository(private val locationDao: LocationDao) {
      * Delete all saved locations.
      */
     suspend fun deleteAllLocations() = locationDao.deleteAllLocations()
+    
+    /**
+     * Search locations by name or address.
+     * 
+     * @param query Search query
+     * @return Flow of matching locations
+     */
+    fun searchLocations(query: String): Flow<List<LocationEntity>> = 
+        locationDao.searchLocations("%$query%")
+    
+    /**
+     * Get all locations for debugging purposes.
+     * 
+     * @return List of all locations
+     */
+    suspend fun getAllLocationsSync(): List<LocationEntity> = 
+        locationDao.getAllLocationsSync()
 }

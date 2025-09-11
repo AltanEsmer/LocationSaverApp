@@ -93,4 +93,12 @@ interface LocationDao {
      */
     @Query("DELETE FROM locations")
     suspend fun deleteAllLocations()
+    
+    /**
+     * Get all saved locations synchronously for debugging.
+     * 
+     * @return List of all locations
+     */
+    @Query("SELECT * FROM locations ORDER BY timestamp DESC")
+    suspend fun getAllLocationsSync(): List<LocationEntity>
 }
