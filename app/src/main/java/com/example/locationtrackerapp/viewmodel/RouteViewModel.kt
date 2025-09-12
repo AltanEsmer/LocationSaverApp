@@ -38,6 +38,18 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
     private val _route = MutableStateFlow<List<LocationEntity>>(emptyList())
     val route: StateFlow<List<LocationEntity>> = _route.asStateFlow()
     
+    // Final destination
+    private val _finalDestination = MutableStateFlow<LocationEntity?>(null)
+    val finalDestination: StateFlow<LocationEntity?> = _finalDestination.asStateFlow()
+    
+    // Complete path (route + final destination)
+    private val _completePath = MutableStateFlow<List<LocationEntity>>(emptyList())
+    val completePath: StateFlow<List<LocationEntity>> = _completePath.asStateFlow()
+    
+    // Current location
+    private val _currentLocation = MutableStateFlow<LocationEntity?>(null)
+    val currentLocation: StateFlow<LocationEntity?> = _currentLocation.asStateFlow()
+    
     // Route analytics
     private val _routeAnalytics = MutableStateFlow(RouteAnalytics())
     val routeAnalytics: StateFlow<RouteAnalytics> = _routeAnalytics.asStateFlow()
@@ -113,6 +125,10 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 
+                // Detect final destination (farthest location from center)
+                val finalDest = detectFinalDestination(locations)
+                _finalDestination.value = finalDest
+                
                 // Apply optimization strategy
                 val optimizedRoute = when (optimizeStrategy) {
                     OptimizationStrategy.NEAREST_NEIGHBOR -> optimizeRouteNearestNeighbor(locations)
@@ -122,7 +138,16 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 
                 _route.value = optimizedRoute
-                updateRouteAnalytics(optimizedRoute)
+                
+                // Create complete path (route + final destination)
+                val completePath = if (finalDest != null) {
+                    optimizedRoute + finalDest
+                } else {
+                    optimizedRoute
+                }
+                _completePath.value = completePath
+                
+                updateRouteAnalytics(completePath)
                 _uiState.value = _uiState.value.copy(isLoading = false)
                 
             } catch (e: Exception) {
@@ -164,16 +189,109 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun clearRoute() {
         _route.value = emptyList()
+        _finalDestination.value = null
+        _completePath.value = emptyList()
+    }
+    
+    /**
+     * Set final destination manually.
+     */
+    fun setFinalDestination(locationId: Long) {
+        viewModelScope.launch {
+            try {
+                val location = locationRepository.getLocationById(locationId)
+                if (location != null) {
+                    _finalDestination.value = location
+                    updateCompletePath()
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to set final destination: ${e.message}"
+                )
+            }
+        }
+    }
+    
+    /**
+     * Set current location for route calculation.
+     */
+    fun setCurrentLocation(latitude: Double, longitude: Double, address: String = "") {
+        viewModelScope.launch {
+            try {
+                val currentLoc = LocationEntity(
+                    id = -1, // Special ID for current location
+                    name = "Current Location",
+                    address = address.ifEmpty { "Current Location" },
+                    latitude = latitude,
+                    longitude = longitude,
+                    timestamp = System.currentTimeMillis()
+                )
+                _currentLocation.value = currentLoc
+                updateCompletePath()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to set current location: ${e.message}"
+                )
+            }
+        }
+    }
+    
+    /**
+     * Detect final destination based on various criteria.
+     */
+    private fun detectFinalDestination(locations: List<LocationEntity>): LocationEntity? {
+        if (locations.isEmpty()) return null
+        
+        // Strategy 1: Find the farthest location from the center of all locations
+        val centerLat = locations.map { it.latitude }.average()
+        val centerLon = locations.map { it.longitude }.average()
+        
+        val farthestLocation = locations.maxByOrNull { location ->
+            calculateDistance(centerLat, centerLon, location.latitude, location.longitude)
+        }
+        
+        // Strategy 2: If there's a location with "FINAL" or "DESTINATION" in the name, use that
+        val finalLocation = locations.find { location ->
+            location.name.uppercase().contains("FINAL") || 
+            location.name.uppercase().contains("DESTINATION") ||
+            location.name.uppercase().contains("END")
+        }
+        
+        return finalLocation ?: farthestLocation
+    }
+    
+    /**
+     * Update complete path when route or final destination changes.
+     */
+    private fun updateCompletePath() {
+        val path = mutableListOf<LocationEntity>()
+        
+        // Add current location if available
+        _currentLocation.value?.let { currentLoc ->
+            path.add(currentLoc)
+        }
+        
+        // Add route stops
+        path.addAll(_route.value)
+        
+        // Add final destination if available
+        _finalDestination.value?.let { finalDest ->
+            path.add(finalDest)
+        }
+        
+        _completePath.value = path
+        updateRouteAnalytics(path)
     }
     
     /**
      * Open route in Google Maps.
      */
-    fun openRouteInMaps(route: List<LocationEntity>): Intent? {
+    fun openRouteInMaps(route: List<LocationEntity>? = null): Intent? {
         return try {
-            if (route.isEmpty()) return null
+            val pathToUse = route ?: _completePath.value
+            if (pathToUse.isEmpty()) return null
             
-            val waypoints = route.joinToString("|") { location ->
+            val waypoints = pathToUse.joinToString("|") { location ->
                 "${location.latitude},${location.longitude}"
             }
             

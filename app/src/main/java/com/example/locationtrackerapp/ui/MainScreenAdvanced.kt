@@ -1,8 +1,13 @@
 package com.example.locationtrackerapp.ui
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.List
@@ -15,10 +20,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import com.example.locationtrackerapp.ui.theme.*
+import com.example.locationtrackerapp.ui.theme.CafeGold
+import com.example.locationtrackerapp.ui.theme.CafeOrange
+import com.example.locationtrackerapp.ui.theme.LocationBlue
+import com.example.locationtrackerapp.ui.theme.RouteRed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.locationtrackerapp.data.LocationEntity
 import com.example.locationtrackerapp.viewmodel.MainViewModel
@@ -43,65 +59,155 @@ fun MainScreenAdvanced(
     var showAboutDialog by remember { mutableStateOf(false) }
     
     val tabs = listOf(
-        TabItem("Konumlar", Icons.Default.LocationOn),
-        TabItem("Siparişler", Icons.Default.List),
-        TabItem("Müşteriler", Icons.Default.Person),
-        TabItem("Rota", Icons.Default.Star)
+        TabItem("📍 Konumlar", Icons.Default.LocationOn, "Delivery locations"),
+        TabItem("📋 Siparişler", Icons.Default.List, "Order management"),
+        TabItem("👤 Müşteriler", Icons.Default.Person, "Customer database"),
+        TabItem("🗺️ Rota", Icons.Default.Star, "Route planning")
     )
+    
+    // Force rebuild trigger - beautiful UI with emojis
     
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Uriel Cafe Delivery") },
+                title = { 
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "☕",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                "Uriel Cafe",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Delivery Manager",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 actions = {
                     IconButton(onClick = { showLocationTestDialog = true }) {
-                        Icon(Icons.Default.LocationOn, contentDescription = "Test Location")
+                        Text("📍", style = MaterialTheme.typography.titleMedium)
                     }
                     IconButton(onClick = { showSearchDialog = true }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search")
+                        Text("🔍", style = MaterialTheme.typography.titleMedium)
                     }
                     IconButton(onClick = { showSettingsDialog = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Text("⚙️", style = MaterialTheme.typography.titleMedium)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             )
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
                 tabs.forEachIndexed { index, tab ->
+                    val isSelected = selectedTab == index
+                    val scale by animateFloatAsState(
+                        targetValue = if (isSelected) 1.1f else 1f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        ),
+                        label = "scale"
+                    )
+                    
                     NavigationBarItem(
-                        icon = { Icon(tab.icon, contentDescription = tab.title) },
-                        label = { Text(tab.title) },
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index }
+                        icon = { 
+                            Box(
+                                modifier = Modifier.scale(scale),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = tab.title.substring(0, 2), // Get emoji
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        },
+                        label = { 
+                            Text(
+                                tab.title.substring(3), // Remove emoji from label
+                                style = MaterialTheme.typography.labelSmall
+                            ) 
+                        },
+                        selected = isSelected,
+                        onClick = { selectedTab = index },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     )
                 }
             }
         },
         floatingActionButton = {
+            val fabScale by animateFloatAsState(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "fabScale"
+            )
+            
             when (selectedTab) {
                 0 -> FloatingActionButton(
                     onClick = { 
                         showSaveDialog = true
-                    }
+                    },
+                    modifier = Modifier.scale(fabScale),
+                    containerColor = CafeGold,
+                    contentColor = Color.White
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Location")
+                    Text("📍", style = MaterialTheme.typography.titleLarge)
                 }
                 1 -> FloatingActionButton(
                     onClick = { 
                         android.util.Log.d("MainScreen", "Order FAB clicked, setting showAddOrderDialog = true")
                         showAddOrderDialog = true
-                    }
+                    },
+                    modifier = Modifier.scale(fabScale),
+                    containerColor = CafeOrange,
+                    contentColor = Color.White
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Order")
+                    Text("📋", style = MaterialTheme.typography.titleLarge)
                 }
                 2 -> FloatingActionButton(
                     onClick = { 
                         android.util.Log.d("MainScreen", "Customer FAB clicked, setting showAddCustomerDialog = true")
                         showAddCustomerDialog = true
-                    }
+                    },
+                    modifier = Modifier.scale(fabScale),
+                    containerColor = LocationBlue,
+                    contentColor = Color.White
                 ) {
-                    Icon(Icons.Default.Person, contentDescription = "Add Customer")
+                    Text("👤", style = MaterialTheme.typography.titleLarge)
+                }
+                3 -> FloatingActionButton(
+                    onClick = { 
+                        // Route planning doesn't need a FAB
+                    },
+                    modifier = Modifier.scale(fabScale),
+                    containerColor = RouteRed,
+                    contentColor = Color.White
+                ) {
+                    Text("🗺️", style = MaterialTheme.typography.titleLarge)
                 }
             }
         }
@@ -193,11 +299,12 @@ fun MainScreenAdvanced(
 }
 
 /**
- * Tab item data class.
+ * Tab item data class with enhanced properties.
  */
 data class TabItem(
     val title: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val description: String = ""
 )
 
 /**
@@ -300,32 +407,76 @@ fun LocationsTab(
         
         // Locations list
         if (savedLocations.isEmpty()) {
-            // Empty state
+            // Beautiful empty state
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
                 ) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    // Gradient background for empty state
+                    Surface(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "📍",
+                                style = MaterialTheme.typography.displayLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
                     Text(
-                        text = "No delivery locations saved",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "No delivery locations yet",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+                    
                     Spacer(modifier = Modifier.height(8.dp))
+                    
                     Text(
-                        text = "Tap the + button to save delivery addresses",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = "Start building your delivery network by saving customer locations",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = CafeGold.copy(alpha = 0.1f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "💡 Quick Start Tips",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = CafeGold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "• Tap the 📍 button to save current location\n• Add customer addresses for easy routing\n• Use GPS coordinates for precise deliveries",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }
             }
         } else {

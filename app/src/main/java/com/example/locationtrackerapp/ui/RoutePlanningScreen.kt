@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.locationtrackerapp.data.LocationEntity
 import com.example.locationtrackerapp.data.OrderEntity
@@ -38,9 +39,13 @@ import java.util.*
 fun RoutePlanningScreen(
     viewModel: RouteViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val pendingOrders by viewModel.pendingOrders.collectAsState()
     val route by viewModel.route.collectAsState()
+    val finalDestination by viewModel.finalDestination.collectAsState()
+    val completePath by viewModel.completePath.collectAsState()
+    val currentLocation by viewModel.currentLocation.collectAsState()
     val routeAnalytics by viewModel.routeAnalytics.collectAsState()
     val savedRoutes by viewModel.savedRoutes.collectAsState()
     
@@ -62,35 +67,87 @@ fun RoutePlanningScreen(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Top App Bar with tabs
+        // Top App Bar with beautiful design
         TopAppBar(
-            title = { Text("Route Planning") },
+            title = { 
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🗺️",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            "Route Planning",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Optimize delivery routes",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
             actions = {
                 IconButton(onClick = { showSavedRoutes = true }) {
-                    Text("📚")
+                    Text("📚", style = MaterialTheme.typography.titleMedium)
                 }
-                IconButton(onClick = { showRouteOptions = true }) {
-                    Icon(Icons.Default.Settings, contentDescription = "Route Options")
+                IconButton(onClick = { 
+                    // Simple test - show a basic dialog first
+                    showRouteOptions = true 
+                }) {
+                    Text("🗺️", style = MaterialTheme.typography.titleMedium)
                 }
-            }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         )
         
-        // Tab Row
-        TabRow(selectedTabIndex = selectedTab) {
+        // Beautiful Tab Row with emojis
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
             Tab(
                 selected = selectedTab == 0,
                 onClick = { selectedTab = 0 },
-                text = { Text("Orders") }
+                text = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📋")
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Orders")
+                    }
+                }
             )
             Tab(
                 selected = selectedTab == 1,
                 onClick = { selectedTab = 1 },
-                text = { Text("Route") }
+                text = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🛣️")
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Route")
+                    }
+                }
             )
             Tab(
                 selected = selectedTab == 2,
                 onClick = { selectedTab = 2 },
-                text = { Text("Analytics") }
+                text = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📊")
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Analytics")
+                    }
+                }
             )
         }
         
@@ -99,6 +156,8 @@ fun RoutePlanningScreen(
             0 -> OrdersTab(
                 pendingOrders = pendingOrders,
                 route = route,
+                finalDestination = finalDestination,
+                currentLocation = currentLocation,
                 onToggleRoute = { locationId ->
                     if (route.any { it.id == locationId }) {
                         viewModel.removeFromRoute(locationId)
@@ -106,16 +165,26 @@ fun RoutePlanningScreen(
                         viewModel.addToRoute(locationId)
                     }
                 },
+                onSetFinalDestination = { locationId -> viewModel.setFinalDestination(locationId) },
+                onSetCurrentLocation = { lat, lon, address -> viewModel.setCurrentLocation(lat, lon, address) },
                 onGenerateRoute = { viewModel.generateOptimizedRoute() },
                 isLoading = uiState.isLoading
             )
             1 -> RouteTab(
                 route = route,
+                finalDestination = finalDestination,
+                completePath = completePath,
+                currentLocation = currentLocation,
                 routeAnalytics = routeAnalytics,
-                onOpenMaps = { viewModel.openRouteInMaps(route) },
+                onOpenMaps = { 
+                    viewModel.openRouteInMaps()?.let { intent ->
+                        context.startActivity(intent)
+                    }
+                },
                 onClearRoute = { viewModel.clearRoute() },
                 onSaveRoute = { showSaveDialog = true },
-                onExportRoute = { showExportDialog = true }
+                onExportRoute = { showExportDialog = true },
+                onSetFinalDestination = { locationId -> viewModel.setFinalDestination(locationId) }
             )
             2 -> AnalyticsTab(
                 routeAnalytics = routeAnalytics,
@@ -204,13 +273,23 @@ fun RoutePlanningScreen(
 fun OrdersTab(
     pendingOrders: List<OrderEntity>,
     route: List<LocationEntity>,
+    finalDestination: LocationEntity?,
+    currentLocation: LocationEntity?,
     onToggleRoute: (Long) -> Unit,
+    onSetFinalDestination: (Long) -> Unit,
+    onSetCurrentLocation: (Double, Double, String) -> Unit,
     onGenerateRoute: () -> Unit,
     isLoading: Boolean
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
+        // Current location setup
+        CurrentLocationSetupCard(
+            currentLocation = currentLocation,
+            onSetCurrentLocation = onSetCurrentLocation
+        )
+        
         // Generate route button
         if (pendingOrders.isNotEmpty()) {
             Card(
@@ -244,6 +323,15 @@ fun OrdersTab(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
+                    
+                    if (finalDestination != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Final destination: ${finalDestination.name}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     
@@ -300,12 +388,21 @@ fun OrdersTab(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(pendingOrders) { order ->
+                    val isInRoute = route.any { it.id == order.locationId }
+                    val isFinalDestination = finalDestination?.id == order.locationId
+                    
                     EnhancedRouteOrderItem(
                         order = order,
-                        isInRoute = route.any { it.id == order.locationId },
+                        isInRoute = isInRoute,
+                        isFinalDestination = isFinalDestination,
                         onToggleRoute = { 
                             order.locationId?.let { locationId ->
                                 onToggleRoute(locationId)
+                            }
+                        },
+                        onSetFinalDestination = {
+                            order.locationId?.let { locationId ->
+                                onSetFinalDestination(locationId)
                             }
                         }
                     )
@@ -321,11 +418,15 @@ fun OrdersTab(
 @Composable
 fun RouteTab(
     route: List<LocationEntity>,
+    finalDestination: LocationEntity?,
+    completePath: List<LocationEntity>,
+    currentLocation: LocationEntity?,
     routeAnalytics: RouteAnalytics,
     onOpenMaps: () -> Unit,
     onClearRoute: () -> Unit,
     onSaveRoute: () -> Unit,
-    onExportRoute: () -> Unit
+    onExportRoute: () -> Unit,
+    onSetFinalDestination: (Long) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
@@ -355,6 +456,102 @@ fun RouteTab(
                 }
             }
         } else {
+            // Current location card
+            if (currentLocation != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("📍")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Starting Point",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = currentLocation.address,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        
+                        Text(
+                            text = "${String.format("%.6f", currentLocation.latitude)}, ${String.format("%.6f", currentLocation.longitude)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+            
+            // Final destination card
+            if (finalDestination != null) {
+                Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🎯")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Final Destination",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = finalDestination.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        
+                        if (finalDestination.address.isNotEmpty()) {
+                            Text(
+                                text = finalDestination.address,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                        
+                        Text(
+                            text = "${String.format("%.6f", finalDestination.latitude)}, ${String.format("%.6f", finalDestination.longitude)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+            
             // Route summary
             Card(
                 modifier = Modifier
@@ -401,6 +598,14 @@ fun RouteTab(
                         item {
                             MetricCard(
                                 icon = null,
+                                title = "Total Path",
+                                value = "${completePath.size}",
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                        item {
+                            MetricCard(
+                                icon = null,
                                 title = "Distance",
                                 value = "${String.format("%.1f", routeAnalytics.totalDistance)} km",
                                 color = MaterialTheme.colorScheme.secondary
@@ -420,23 +625,23 @@ fun RouteTab(
                     
                     // Action buttons
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
                             onClick = onOpenMaps,
-                            modifier = Modifier.weight(1f)
-                        ) {
+                    modifier = Modifier.weight(1f)
+                ) {
                             Text("🗺️")
-                            Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                             Text("Open in Maps")
-                        }
-                        
-                        OutlinedButton(
+                }
+                
+                OutlinedButton(
                             onClick = onSaveRoute,
                             modifier = Modifier.weight(1f)
-                        ) {
+                ) {
                             Text("⭐")
-                            Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                             Text("Save")
                         }
                     }
@@ -467,18 +672,32 @@ fun RouteTab(
                 }
             }
             
-            // Route stops list
+            // Complete path list
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(route) { location ->
-                    RouteStopItem(
-                        location = location,
-                        stopNumber = route.indexOf(location) + 1
-                    )
-                        }
+                items(completePath) { location ->
+                    val isFinalDestination = location.id == finalDestination?.id
+                    val isCurrentLocation = location.id == currentLocation?.id
+                    val stopNumber = completePath.indexOf(location) + 1
+                    
+                    when {
+                        isCurrentLocation -> CurrentLocationItem(
+                            location = location,
+                            stopNumber = stopNumber
+                        )
+                        isFinalDestination -> FinalDestinationItem(
+                            location = location,
+                            stopNumber = stopNumber
+                        )
+                        else -> RouteStopItem(
+                            location = location,
+                            stopNumber = stopNumber
+                        )
+                    }
+                }
                     }
                 }
             }
@@ -519,7 +738,7 @@ fun AnalyticsTab(
                     )
                 }
             }
-        } else {
+                            } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
@@ -632,6 +851,170 @@ fun AnalyticsTab(
 }
 
 /**
+ * Current location setup card.
+ */
+@Composable
+fun CurrentLocationSetupCard(
+    currentLocation: LocationEntity?,
+    onSetCurrentLocation: (Double, Double, String) -> Unit
+) {
+    var showLocationDialog by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (currentLocation != null) 
+                MaterialTheme.colorScheme.primaryContainer 
+            else 
+                MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("📍")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Current Location",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (currentLocation != null) 
+                        MaterialTheme.colorScheme.onPrimaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            if (currentLocation != null) {
+                Text(
+                    text = currentLocation.address,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    text = "${String.format("%.6f", currentLocation.latitude)}, ${String.format("%.6f", currentLocation.longitude)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+            } else {
+                Text(
+                    text = "Set your current location to calculate accurate distances",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Button(
+                onClick = { showLocationDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (currentLocation != null) "Update Location" else "Set Current Location"
+                )
+            }
+        }
+    }
+    
+    if (showLocationDialog) {
+        SetLocationDialog(
+            onDismiss = { showLocationDialog = false },
+            onLocationSet = { lat, lon, address ->
+                onSetCurrentLocation(lat, lon, address)
+                showLocationDialog = false
+            }
+        )
+    }
+}
+
+/**
+ * Dialog for setting current location.
+ */
+@Composable
+fun SetLocationDialog(
+    onDismiss: () -> Unit,
+    onLocationSet: (Double, Double, String) -> Unit
+) {
+    var latitude by remember { mutableStateOf("") }
+    var longitude by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Set Current Location")
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Enter your current location coordinates:",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                OutlinedTextField(
+                    value = latitude,
+                    onValueChange = { latitude = it },
+                    label = { Text("Latitude") },
+                    placeholder = { Text("e.g., 37.421998") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = longitude,
+                    onValueChange = { longitude = it },
+                    label = { Text("Longitude") },
+                    placeholder = { Text("e.g., -122.084000") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    label = { Text("Address (optional)") },
+                    placeholder = { Text("e.g., 1600 Amphitheatre Pkwy, Mountain View, CA") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    try {
+                        val lat = latitude.toDouble()
+                        val lon = longitude.toDouble()
+                        onLocationSet(lat, lon, address)
+                    } catch (e: NumberFormatException) {
+                        // Handle invalid input
+                    }
+                },
+                enabled = latitude.isNotEmpty() && longitude.isNotEmpty()
+            ) {
+                Text("Set Location")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
  * Enhanced route order item with better visual design.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -639,17 +1022,20 @@ fun AnalyticsTab(
 fun EnhancedRouteOrderItem(
     order: OrderEntity,
     isInRoute: Boolean,
-    onToggleRoute: () -> Unit
+    isFinalDestination: Boolean,
+    onToggleRoute: () -> Unit,
+    onSetFinalDestination: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onToggleRoute() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isInRoute) 
-                MaterialTheme.colorScheme.primaryContainer 
-            else 
-                MaterialTheme.colorScheme.surface
+            containerColor = when {
+                isFinalDestination -> MaterialTheme.colorScheme.secondaryContainer
+                isInRoute -> MaterialTheme.colorScheme.primaryContainer 
+                else -> MaterialTheme.colorScheme.surface
+            }
         )
     ) {
         Row(
@@ -679,30 +1065,49 @@ fun EnhancedRouteOrderItem(
                     text = order.customerName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (isInRoute) 
-                        MaterialTheme.colorScheme.onPrimaryContainer 
-                    else 
-                        MaterialTheme.colorScheme.onSurface
+                    color = when {
+                        isFinalDestination -> MaterialTheme.colorScheme.onSecondaryContainer
+                        isInRoute -> MaterialTheme.colorScheme.onPrimaryContainer 
+                        else -> MaterialTheme.colorScheme.onSurface
+                    }
                 )
                 
                 if (order.orderNumber.isNotEmpty()) {
                     Text(
                         text = "Order #${order.orderNumber}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isInRoute) 
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        else 
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                        color = when {
+                            isFinalDestination -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                            isInRoute -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
                 }
                 
                 Text(
                     text = getStatusText(order.status),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isInRoute) 
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    else 
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    color = when {
+                        isFinalDestination -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                        isInRoute -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+            
+            // Action buttons
+            Row {
+                // Final destination button
+                IconButton(
+                    onClick = onSetFinalDestination
+                ) {
+                    Text(
+                        text = if (isFinalDestination) "🎯" else "🎯",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (isFinalDestination) 
+                            MaterialTheme.colorScheme.secondary 
+                        else 
+                            MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
@@ -710,9 +1115,174 @@ fun EnhancedRouteOrderItem(
             IconButton(
                 onClick = onToggleRoute
             ) {
+                    Text(
+                        text = if (isInRoute) "❌" else "➕",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Current location item with special styling.
+ */
+@Composable
+fun CurrentLocationItem(
+    location: LocationEntity,
+    stopNumber: Int
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Current location indicator
+            Surface(
+                modifier = Modifier.size(32.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.tertiary
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "📍",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Location details
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
-                    text = if (isInRoute) "❌" else "➕",
-                    style = MaterialTheme.typography.titleLarge
+                    text = location.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                
+                if (location.address.isNotEmpty()) {
+                    Text(
+                        text = location.address,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+                
+                Text(
+                    text = "${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                )
+            }
+            
+            // Current location label
+            Surface(
+                modifier = Modifier.padding(8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.tertiary
+            ) {
+                Text(
+                    text = "START",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Final destination item with special styling.
+ */
+@Composable
+fun FinalDestinationItem(
+    location: LocationEntity,
+    stopNumber: Int
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Final destination indicator
+            Surface(
+                modifier = Modifier.size(32.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondary
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🎯",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Location details
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = location.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                
+                if (location.address.isNotEmpty()) {
+                    Text(
+                        text = location.address,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+                
+                Text(
+                    text = "${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                )
+            }
+            
+            // Final destination label
+            Surface(
+                modifier = Modifier.padding(8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.secondary
+            ) {
+                Text(
+                    text = "FINAL",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondary
                 )
             }
         }

@@ -1,9 +1,14 @@
 package com.example.locationtrackerapp.ui
 
 import android.content.Intent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -12,10 +17,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.locationtrackerapp.ui.theme.*
+import com.example.locationtrackerapp.ui.theme.CafeGold
+import com.example.locationtrackerapp.ui.theme.LocationBlue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.locationtrackerapp.data.LocationEntity
 import com.example.locationtrackerapp.viewmodel.MainViewModel
@@ -57,14 +68,42 @@ fun MainScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Uriel Cafe Delivery") }
+                title = { 
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "☕",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                "Uriel Cafe",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Delivery Manager",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showSaveDialog = true }
+                onClick = { showSaveDialog = true },
+                containerColor = CafeGold,
+                contentColor = Color.White
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Save Location")
+                Text("📍", style = MaterialTheme.typography.titleLarge)
             }
         }
     ) { paddingValues ->
@@ -152,32 +191,76 @@ fun MainScreen(
             
             // Locations list
             if (savedLocations.isEmpty()) {
-                // Empty state
+                // Beautiful empty state
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
                     ) {
-                        Icon(
-                            Icons.Default.LocationOn,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        // Beautiful empty state icon
+                        Surface(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(CircleShape),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "📍",
+                                    style = MaterialTheme.typography.displayLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
                         Text(
-                            text = "No delivery locations saved",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "No delivery locations yet",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
+                        
                         Spacer(modifier = Modifier.height(8.dp))
+                        
                         Text(
-                            text = "Tap the + button to save delivery addresses",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = "Start building your delivery network by saving customer locations",
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = CafeGold.copy(alpha = 0.1f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "💡 Quick Start Tips",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CafeGold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "• Tap the 📍 button to save current location\n• Add customer addresses for easy routing\n• Use GPS coordinates for precise deliveries",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
                     }
                 }
             } else {
@@ -221,7 +304,13 @@ fun LocationItem(
 ) {
     Card(
         onClick = onLocationClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp
+        )
     ) {
         Row(
             modifier = Modifier
@@ -229,13 +318,21 @@ fun LocationItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.LocationOn,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
+            // Beautiful location icon
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = CircleShape,
+                color = LocationBlue.copy(alpha = 0.2f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "📍",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+            }
             
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(16.dp))
             
             Column(
                 modifier = Modifier.weight(1f)
@@ -245,31 +342,39 @@ fun LocationItem(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 
+                Spacer(modifier = Modifier.height(4.dp))
+                
                 Text(
-                    text = "Lat: ${String.format("%.6f", location.latitude)}, " +
-                            "Lng: ${String.format("%.6f", location.longitude)}",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "📐 ${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)}",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 Text(
-                    text = "ID: ${location.id} • Saved: ${formatTimestamp(location.timestamp)}",
+                    text = "🆔 ${location.id} • 📅 ${formatTimestamp(location.timestamp)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
-            IconButton(
-                onClick = onDeleteClick
+            // Beautiful delete button
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
             ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete location",
-                    tint = MaterialTheme.colorScheme.error
-                )
+                IconButton(
+                    onClick = onDeleteClick
+                ) {
+                    Text(
+                        text = "🗑️",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
             }
         }
     }
