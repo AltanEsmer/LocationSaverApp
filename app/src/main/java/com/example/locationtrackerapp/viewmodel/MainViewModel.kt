@@ -165,6 +165,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
+     * Rename a saved location.
+     *
+     * @param locationId The ID of the location to rename
+     * @param newName The new name for the location
+     */
+    fun renameLocation(locationId: Long, newName: String) {
+        val trimmed = newName.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                locationRepository.renameLocation(locationId, trimmed)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Failed to rename location: ${e.message}"
+                )
+            }
+        }
+    }
+
+    /**
      * Delete a saved location.
      * 
      * @param locationId The ID of the location to delete

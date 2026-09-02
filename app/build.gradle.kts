@@ -50,9 +50,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    
-    // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.6")
+
+    // Splash screen (AndroidX compat splash API)
+    implementation("androidx.core:core-splashscreen:1.0.1")
     
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")

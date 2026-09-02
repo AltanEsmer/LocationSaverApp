@@ -1,75 +1,44 @@
 package com.example.locationtrackerapp.ui.theme
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// Modern vibrant color palette for Uriel Cafe Delivery
-// Light theme colors
-val PrimaryLight = Color(0xFF6750A4)           // Rich purple
-val OnPrimaryLight = Color(0xFFFFFFFF)         // White
-val PrimaryContainerLight = Color(0xFFEADDFF)  // Light purple
-val OnPrimaryContainerLight = Color(0xFF21005D) // Dark purple
+/**
+ * Uriel Cafe brand palette.
+ *
+ * The app is light-mode-first: a near-white surface with dark, high-contrast
+ * text and a single dark-red brand accent (matching the restaurant's logo
+ * and app icon) used sparingly for primary actions and highlights.
+ */
 
-val SecondaryLight = Color(0xFF625B71)         // Muted purple
-val OnSecondaryLight = Color(0xFFFFFFFF)       // White
-val SecondaryContainerLight = Color(0xFFE8DEF8) // Light lavender
-val OnSecondaryContainerLight = Color(0xFF1D192B) // Dark slate
+// Neutrals
+val SurfaceWhite = Color(0xFFFDFBFA)
+val BackgroundWhite = Color(0xFFF7F4F3)
+val TextPrimary = Color(0xFF1A1414)
+val TextSecondary = Color(0xFF7A7170)
+val DividerColor = Color(0xFFECE6E5)
+val SurfaceCard = Color(0xFFFFFFFF)
 
-val TertiaryLight = Color(0xFF7D5260)          // Mauve
-val OnTertiaryLight = Color(0xFFFFFFFF)        // White
-val TertiaryContainerLight = Color(0xFFFFD8E4) // Light pink
-val OnTertiaryContainerLight = Color(0xFF31111D) // Dark burgundy
+// Brand red (sampled from the restaurant's icon/logo artwork)
+val BrandRed900 = Color(0xFF3E0407)
+val BrandRed800 = Color(0xFF5C0709)
+val BrandRed700 = Color(0xFF7A0F16)
+val BrandRed600 = Color(0xFF931019)
+val BrandRed500 = Color(0xFFAE1B22)
+val BrandRedTint = Color(0xFFFBEBEC)
 
-val ErrorLight = Color(0xFFBA1A1A)             // Bright red
-val OnErrorLight = Color(0xFFFFFFFF)           // White
-val ErrorContainerLight = Color(0xFFFFDAD6)    // Light red
-val OnErrorContainerLight = Color(0xFF410002)  // Dark red
+val CafeGold = BrandRed500
+val LocationBlue = BrandRed700
 
-val BackgroundLight = Color(0xFFFFFBFE)        // Off-white
-val OnBackgroundLight = Color(0xFF1C1B1F)      // Dark gray
-val SurfaceLight = Color(0xFFFFFBFE)           // Off-white
-val OnSurfaceLight = Color(0xFF1C1B1F)         // Dark gray
-val SurfaceVariantLight = Color(0xFFE7E0EC)    // Light gray
-val OnSurfaceVariantLight = Color(0xFF49454F)  // Medium gray
+// Feedback
+val ErrorRed = Color(0xFFB3261E)
+val ErrorRedContainer = Color(0xFFFBEBEC)
 
-// Dark theme colors
-val PrimaryDark = Color(0xFFD0BCFF)            // Light purple
-val OnPrimaryDark = Color(0xFF381E72)          // Dark purple
-val PrimaryContainerDark = Color(0xFF4F378B)   // Medium purple
-val OnPrimaryContainerDark = Color(0xFFEADDFF) // Light purple
+/** Subtle, premium diagonal gradient used for the header and primary buttons. */
+val BrandRedGradient = Brush.linearGradient(
+    colors = listOf(BrandRed900, BrandRed600)
+)
 
-val SecondaryDark = Color(0xFFCCC2DC)          // Light lavender
-val OnSecondaryDark = Color(0xFF332D41)        // Dark slate
-val SecondaryContainerDark = Color(0xFF4A4458) // Medium slate
-val OnSecondaryContainerDark = Color(0xFFE8DEF8) // Light lavender
-
-val TertiaryDark = Color(0xFFEFB8C8)           // Light pink
-val OnTertiaryDark = Color(0xFF492532)         // Dark burgundy
-val TertiaryContainerDark = Color(0xFF633B48)  // Medium burgundy
-val OnTertiaryContainerDark = Color(0xFFFFD8E4) // Light pink
-
-val ErrorDark = Color(0xFFFFB4AB)              // Light red
-val OnErrorDark = Color(0xFF690005)            // Dark red
-val ErrorContainerDark = Color(0xFF93000A)     // Medium red
-val OnErrorContainerDark = Color(0xFFFFDAD6)   // Light red
-
-val BackgroundDark = Color(0xFF1C1B1F)         // Dark gray
-val OnBackgroundDark = Color(0xFFE6E1E5)       // Light gray
-val SurfaceDark = Color(0xFF1C1B1F)            // Dark gray
-val OnSurfaceDark = Color(0xFFE6E1E5)          // Light gray
-val SurfaceVariantDark = Color(0xFF49454F)     // Medium gray
-val OnSurfaceVariantDark = Color(0xFFCAC4D0)   // Light gray
-
-// Custom accent colors for cafe/delivery theme
-val CafeGold = Color(0xFFFFB300)               // Warm gold
-val CafeOrange = Color(0xFFFF7043)             // Cafe orange
-val DeliveryGreen = Color(0xFF4CAF50)          // Success green
-val LocationBlue = Color(0xFF2196F3)           // Location blue
-val RouteRed = Color(0xFFE91E63)               // Route accent
-
-// Legacy colors for backward compatibility
-val Purple80 = PrimaryDark
-val PurpleGrey80 = SecondaryDark
-val Pink80 = TertiaryDark
-val Purple40 = PrimaryLight
-val PurpleGrey40 = SecondaryLight
-val Pink40 = TertiaryLight
+val BrandRedGradientSoft = Brush.linearGradient(
+    colors = listOf(BrandRed800, BrandRed500)
+)

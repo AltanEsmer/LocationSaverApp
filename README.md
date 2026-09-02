@@ -1,116 +1,111 @@
-# 📍 Location Saver App
+<div align="center">
+	<img src="icon.png" alt="Location Saver logo" width="180" />
+	<h1>Location Saver</h1>
+	<p>Save, organize, and open important locations directly in Google Maps.</p>
+	<p>
+		<img src="https://img.shields.io/badge/version-1.0-931019" alt="Version 1.0" />
+		<img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Android" />
+		<img src="https://img.shields.io/badge/license-MIT-555555" alt="MIT License" />
+	</p>
+</div>
 
-A simple and intuitive Android application that allows you to save your current location with custom names and view them in Google Maps.
+## Overview
 
-## ✨ Features
+Location Saver is a privacy-focused Android application for saving named GPS locations on your device. Saved locations remain available offline and can be opened in Google Maps when navigation is needed.
 
-- **Save Current Location**: Save your current location with a custom name
-- **View Saved Locations**: See all your saved locations in a clean, organized list
-- **Open in Google Maps**: Tap any location to open it directly in Google Maps
-- **Delete Locations**: Remove locations you no longer need
-- **Offline Storage**: All data is stored locally on your device
-- **Privacy First**: Your location data never leaves your device
+## Features
 
-## 🚀 Getting Started
+- Save the current GPS position with a custom name
+- Browse saved locations in a searchable list
+- Open a saved location in Google Maps
+- Rename or delete saved locations
+- Store location data locally with Room
+- Use a clean Material 3 interface built with Jetpack Compose
 
-### Prerequisites
-- Android 8.0 (API level 26) or higher
-- Google Play Services (for Maps integration)
-- Location services enabled
+## App Information
 
-### Installation
-1. Download the APK file
-2. Enable "Install from unknown sources" in your device settings
-3. Install the APK
-4. Grant location permission when prompted
+| Property | Value |
+| --- | --- |
+| Version | 1.0 |
+| Version code | 1 |
+| Application ID | `com.example.locationtrackerapp` |
+| Platform | Android |
+| Minimum Android version | Android 7.0, API 24 |
+| Target Android version | API 36 |
+| Compile SDK | API 36 |
+| License | MIT |
 
-### First Use
-1. Open the app
-2. Grant location permission when prompted
-3. Tap the **+** button to save your first location
-4. Enter a name for your location
-5. Tap "Save"
+## Installation
 
-## 📱 Screenshots
+1. Download the debug APK from [app/build/outputs/apk/debug/app-debug.apk](app/build/outputs/apk/debug/app-debug.apk), or build it from source.
+2. Allow installation from this source when Android prompts you.
+3. Install the APK and open Location Saver.
+4. Grant location permission when requested.
 
-*Screenshots would be added here showing the main interface, save dialog, and location list*
+The debug APK is intended for testing and is not a production release package.
 
-## 🏗️ Architecture
+## Using the App
 
-This app follows modern Android development practices:
+1. Open Location Saver and grant location access.
+2. Select the save-location action.
+3. Enter a name for the location and save it.
+4. Select a saved location to open it in Google Maps.
+5. Use the available location actions to rename or remove an entry.
 
-- **MVVM Architecture**: Clean separation of concerns
-- **Jetpack Compose**: Modern declarative UI
-- **Room Database**: Local data persistence
-- **Google Play Services**: Location and Maps integration
-- **Material 3 Design**: Modern, accessible UI
+## Technical Architecture
 
-## 📚 Documentation
+- **Language:** Kotlin
+- **UI:** Jetpack Compose and Material 3
+- **Architecture:** MVVM with ViewModel and repository layers
+- **Persistence:** Room database
+- **Location services:** Google Play Services Location
+- **Map integration:** Google Maps intent integration
+- **Build system:** Gradle with Android Gradle Plugin
 
-- [User Guide](USER_GUIDE.md) - Complete user documentation
-- [Developer Guide](DEVELOPER_GUIDE.md) - Technical documentation
-- [Architecture Guide](ARCHITECTURE.md) - System architecture details
+## Build From Source
 
-## 🔧 Development
+### Requirements
 
-### Building from Source
-1. Clone the repository
-2. Open in Android Studio
-3. Sync Gradle files
-4. Build the project
+- Android Studio with Android SDK 36
+- JDK 11 or newer
+- Android SDK Build-Tools 35 or newer
 
-### Dependencies
-- Kotlin 1.9.0+
-- Android SDK 24+
-- Jetpack Compose
-- Room Database
-- Google Play Services
+### Commands
 
-## 🔒 Privacy & Security
+From the project root:
 
-- **Local Storage Only**: All data is stored on your device
-- **No Internet Required**: App works offline (except for Maps)
-- **No Data Collection**: We don't collect any personal information
-- **Encrypted Storage**: Data is protected using Android's built-in security
+```powershell
+.gradlew.bat assembleDebug
+```
 
-## 🐛 Troubleshooting
+The generated APK is located at `app/build/outputs/apk/debug/app-debug.apk`.
 
-### Common Issues
-- **Location not found**: Ensure GPS is enabled and you have a clear view of the sky
-- **Permission denied**: Grant location permission in device settings
-- **Maps not opening**: Install Google Maps from the Play Store
+## Privacy
 
-### Getting Help
-- Check the [User Guide](USER_GUIDE.md) for detailed troubleshooting
-- Review the [Developer Guide](DEVELOPER_GUIDE.md) for technical issues
+Location data is stored locally in the app's private database. The app does not provide a cloud sync service or collect personal location data. Google Maps handles any data required when a location is opened for mapping or navigation.
 
-## 🚧 Future Features
+## Troubleshooting
 
-- Background location tracking
-- Location categories and tags
-- Export/import functionality
-- Cloud backup integration
-- Location sharing capabilities
+### Location cannot be found
 
-## 📄 License
+Enable device location services and grant the app location permission. GPS accuracy may be reduced indoors or in areas with limited signal.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Google Maps does not open
 
-## 🤝 Contributing
+Install Google Maps or choose another compatible mapping application when Android displays the available apps.
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Saved locations are missing after reinstalling
 
-## 📞 Support
+Uninstalling the app deletes its private local database. Keep the existing installation when updating, or create a backup before uninstalling. Backup and import support is planned for a future release.
 
-For support, please check the documentation or open an issue in the repository.
+## Documentation
 
-## 🏆 Acknowledgments
+- [Comprehensive User Guide](USER_GUIDE_COMPREHENSIVE.md)
+- [Developer Guide](DEVELOPER_GUIDE.md)
+- [Architecture Guide](ARCHITECTURE.md)
+- [Location Testing Guide](LOCATION_TESTING_GUIDE.md)
+- [Delivery Guide](DELIVERY_GUIDE.md)
 
-- Built with [Jetpack Compose](https://developer.android.com/jetpack/compose)
-- Uses [Room Database](https://developer.android.com/training/data-storage/room)
-- Integrates with [Google Play Services](https://developers.google.com/android/reference/com/google/android/gms/location/package-summary)
-- Follows [Material Design](https://material.io/design) guidelines
+## License
 
----
-
-**Note**: This app is designed for personal use and stores all data locally on your device. No data is transmitted to external servers.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

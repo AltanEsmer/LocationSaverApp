@@ -1,77 +1,79 @@
 package com.example.locationtrackerapp.ui
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import com.example.locationtrackerapp.ui.theme.ErrorRed
 
 /**
- * Dialog for saving a new location with a user-provided name.
- * 
+ * Dialog for saving the current location with a user-provided name.
+ * Matches the app's minimalist dialog style: clean spacing, a single
+ * input, and a clear primary action. The actual location fetch + save
+ * happens in the background after the dialog closes; result feedback is
+ * shown as a subtle snackbar on the main screen.
+ *
  * @param onDismiss Callback when the dialog is dismissed
  * @param onSave Callback when the user confirms saving with a name
  */
 @Composable
 fun SaveLocationDialog(
+    isSaving: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
 ) {
-    var locationName by remember { mutableStateOf(TextFieldValue("")) }
+    var locationName by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Save Delivery Address")
-        },
-        text = {
+
+    PremiumAlertDialog(
+        onDismiss = onDismiss,
+        title = "Save Location",
+        content = {
             Column {
-                Text("Enter a name for this delivery address:")
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
                 OutlinedTextField(
                     value = locationName,
-                    onValueChange = { 
+                    onValueChange = {
                         locationName = it
                         isError = false
                     },
-                    label = { Text("Address name") },
-                    placeholder = { Text("e.g., John's House, Office Building, Apartment 5B") },
+                    placeholder = { Text("Location name") },
                     isError = isError,
                     singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = premiumTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 if (isError) {
                     Text(
-                        text = "Please enter an address name",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
+                        text = "Enter a name for this location",
+                        color = ErrorRed,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val name = locationName.text.trim()
-                    if (name.isNotEmpty()) {
-                        onSave(name)
-                    } else {
-                        isError = true
-                    }
-                }
-            ) {
-                Text("Save")
+        confirmText = "Save",
+        onConfirm = {
+            val name = locationName.trim()
+            if (name.isNotEmpty()) {
+                onSave(name)
+            } else {
+                isError = true
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        confirmClosesDialog = false,
+        dismissText = "Cancel"
     )
 }

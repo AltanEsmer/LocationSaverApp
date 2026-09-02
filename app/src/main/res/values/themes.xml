@@ -2,4 +2,12 @@
 <resources>
 
     <style name="Theme.LocationTrackerApp" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Splash screen theme: shown instantly on launch, then hands off to the main theme. -->
+    <style name="Theme.LocationTrackerApp.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.LocationTrackerApp</item>
+    </style>
 </resources>

@@ -9,16 +9,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.example.locationtrackerapp.ui.MainScreenAdvanced
 import com.example.locationtrackerapp.ui.PermissionHandler
 import com.example.locationtrackerapp.ui.theme.LocationTrackerAppTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Must be called before super.onCreate() / setContent() so the
+        // splash screen (configured in themes.xml) shows immediately and
+        // hands off to the main theme with no artificial delay.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
+
         try {
             setContent {
                 LocationTrackerAppTheme {

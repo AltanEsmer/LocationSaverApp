@@ -54,6 +54,15 @@ interface LocationDao {
     fun searchLocations(query: String): Flow<List<LocationEntity>>
     
     /**
+     * Rename a saved location.
+     *
+     * @param id Location ID
+     * @param name New name for the location
+     */
+    @Query("UPDATE locations SET name = :name WHERE id = :id")
+    suspend fun renameLocation(id: Long, name: String)
+
+    /**
      * Update location visit count and last visited time.
      * 
      * @param id Location ID

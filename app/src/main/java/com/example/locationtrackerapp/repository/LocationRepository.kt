@@ -51,6 +51,14 @@ class LocationRepository(private val locationDao: LocationDao) {
     suspend fun getLocationById(id: Long): LocationEntity? = locationDao.getLocationById(id)
     
     /**
+     * Rename a saved location.
+     *
+     * @param id The ID of the location to rename
+     * @param name The new name for the location
+     */
+    suspend fun renameLocation(id: Long, name: String) = locationDao.renameLocation(id, name)
+
+    /**
      * Delete a location by ID.
      * 
      * @param id The ID of the location to delete

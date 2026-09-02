@@ -1,214 +1,117 @@
 package com.example.locationtrackerapp.ui
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import android.content.Intent
-import com.example.locationtrackerapp.ui.theme.*
-import com.example.locationtrackerapp.ui.theme.CafeGold
-import com.example.locationtrackerapp.ui.theme.CafeOrange
-import com.example.locationtrackerapp.ui.theme.LocationBlue
-import com.example.locationtrackerapp.ui.theme.RouteRed
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.locationtrackerapp.R
 import com.example.locationtrackerapp.data.LocationEntity
+import com.example.locationtrackerapp.ui.theme.*
 import com.example.locationtrackerapp.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 
 /**
- * Advanced main screen with tabs for different features.
- * Perfect for delivery service management.
+ * The app's single screen: a branded header (location test + search) above a
+ * clean, scrollable list of saved locations. Tapping a location opens it
+ * directly in Google Maps.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreenAdvanced(
     viewModel: MainViewModel = viewModel()
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    val uiState by viewModel.uiState.collectAsState()
+    val savedLocations by viewModel.savedLocations.collectAsState()
+    val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    var isSearchActive by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
     var showSaveDialog by remember { mutableStateOf(false) }
-    var showSettingsDialog by remember { mutableStateOf(false) }
-    var showSearchDialog by remember { mutableStateOf(false) }
-    var showAddOrderDialog by remember { mutableStateOf(false) }
-    var showAddCustomerDialog by remember { mutableStateOf(false) }
     var showLocationTestDialog by remember { mutableStateOf(false) }
-    var showDataManagementDialog by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
-    
-    val tabs = listOf(
-        TabItem("📍 Konumlar", Icons.Default.LocationOn, "Delivery locations"),
-        TabItem("📋 Siparişler", Icons.Default.List, "Order management"),
-        TabItem("👤 Müşteriler", Icons.Default.Person, "Customer database"),
-        TabItem("🗺️ Rota", Icons.Default.Star, "Route planning")
-    )
-    
-    // Force rebuild trigger - beautiful UI with emojis
-    
+    var locationPendingDelete by remember { mutableStateOf<LocationEntity?>(null) }
+    var locationPendingRename by remember { mutableStateOf<LocationEntity?>(null) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Subtle, non-intrusive feedback for saves.
+    LaunchedEffect(uiState.lastSavedLocationId) {
+        if (uiState.lastSavedLocationId != null) {
+            scope.launch { snackbarHostState.showSnackbar("Location saved") }
+            viewModel.clearLastSavedLocationId()
+        }
+    }
+
+    // Concise, non-technical error feedback.
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { message ->
+            scope.launch { snackbarHostState.showSnackbar(friendlyErrorMessage(message)) }
+            viewModel.clearError()
+        }
+    }
+
+    fun closeSearch() {
+        isSearchActive = false
+        searchQuery = ""
+        viewModel.searchLocations("")
+        keyboardController?.hide()
+    }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "☕",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                "Uriel Cafe",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "Delivery Manager",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showLocationTestDialog = true }) {
-                        Text("📍", style = MaterialTheme.typography.titleMedium)
-                    }
-                    IconButton(onClick = { showSearchDialog = true }) {
-                        Text("🔍", style = MaterialTheme.typography.titleMedium)
-                    }
-                    IconButton(onClick = { showSettingsDialog = true }) {
-                        Text("⚙️", style = MaterialTheme.typography.titleMedium)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    val isSelected = selectedTab == index
-                    val scale by animateFloatAsState(
-                        targetValue = if (isSelected) 1.1f else 1f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        ),
-                        label = "scale"
-                    )
-                    
-                    NavigationBarItem(
-                        icon = { 
-                            Box(
-                                modifier = Modifier.scale(scale),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = tab.title.substring(0, 2), // Get emoji
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                            }
-                        },
-                        label = { 
-                            Text(
-                                tab.title.substring(3), // Remove emoji from label
-                                style = MaterialTheme.typography.labelSmall
-                            ) 
-                        },
-                        selected = isSelected,
-                        onClick = { selectedTab = index },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    )
-                }
-            }
-        },
+        containerColor = BackgroundWhite,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            val fabScale by animateFloatAsState(
-                targetValue = 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                ),
-                label = "fabScale"
-            )
-            
-            when (selectedTab) {
-                0 -> FloatingActionButton(
-                    onClick = { 
-                        showSaveDialog = true
-                    },
-                    modifier = Modifier.scale(fabScale),
-                    containerColor = CafeGold,
-                    contentColor = Color.White
-                ) {
-                    Text("📍", style = MaterialTheme.typography.titleLarge)
-                }
-                1 -> FloatingActionButton(
-                    onClick = { 
-                        android.util.Log.d("MainScreen", "Order FAB clicked, setting showAddOrderDialog = true")
-                        showAddOrderDialog = true
-                    },
-                    modifier = Modifier.scale(fabScale),
-                    containerColor = CafeOrange,
-                    contentColor = Color.White
-                ) {
-                    Text("📋", style = MaterialTheme.typography.titleLarge)
-                }
-                2 -> FloatingActionButton(
-                    onClick = { 
-                        android.util.Log.d("MainScreen", "Customer FAB clicked, setting showAddCustomerDialog = true")
-                        showAddCustomerDialog = true
-                    },
-                    modifier = Modifier.scale(fabScale),
-                    containerColor = LocationBlue,
-                    contentColor = Color.White
-                ) {
-                    Text("👤", style = MaterialTheme.typography.titleLarge)
-                }
-                3 -> FloatingActionButton(
-                    onClick = { 
-                        // Route planning doesn't need a FAB
-                    },
-                    modifier = Modifier.scale(fabScale),
-                    containerColor = RouteRed,
-                    contentColor = Color.White
-                ) {
-                    Text("🗺️", style = MaterialTheme.typography.titleLarge)
-                }
+            FloatingActionButton(
+                onClick = { showSaveDialog = true },
+                shape = CircleShape,
+                containerColor = BrandRed700,
+                contentColor = Color.White,
+                modifier = Modifier.size(60.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Save current location")
             }
         }
     ) { paddingValues ->
@@ -217,28 +120,50 @@ fun MainScreenAdvanced(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when (selectedTab) {
-                0 -> LocationsTab(viewModel = viewModel)
-                1 -> OrderManagementScreen(
-                    showAddDialog = showAddOrderDialog, 
-                    onDialogDismiss = { 
-                        showAddOrderDialog = false
+            AppHeader(
+                isSearchActive = isSearchActive,
+                searchQuery = searchQuery,
+                onSearchQueryChange = {
+                    searchQuery = it
+                    viewModel.searchLocations(it)
+                },
+                onOpenSearch = { isSearchActive = true },
+                onCloseSearch = { closeSearch() },
+                onLocationTestClick = { showLocationTestDialog = true }
+            )
+
+            if (savedLocations.isEmpty()) {
+                EmptyLocationsState(isSearching = isSearchActive && searchQuery.isNotBlank())
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    itemsIndexed(
+                        items = savedLocations,
+                        key = { _, location -> location.id }
+                    ) { index, location ->
+                        LocationRow(
+                            index = index,
+                            location = location,
+                            onClick = {
+                                viewModel.openLocationInMaps(location)?.let { intent ->
+                                    context.startActivity(intent)
+                                }
+                            },
+                            onRename = { locationPendingRename = location },
+                            onDelete = { locationPendingDelete = location }
+                        )
                     }
-                )
-                2 -> CustomerManagementScreen(
-                    showAddDialog = showAddCustomerDialog, 
-                    onDialogDismiss = { 
-                        showAddCustomerDialog = false
-                    }
-                )
-                3 -> RoutePlanningScreen()
+                }
             }
         }
     }
-    
-    // Show save location dialog
+
     if (showSaveDialog) {
         SaveLocationDialog(
+            isSaving = uiState.isLoading,
             onDismiss = { showSaveDialog = false },
             onSave = { name ->
                 viewModel.saveCurrentLocation(name)
@@ -246,440 +171,332 @@ fun MainScreenAdvanced(
             }
         )
     }
-    
-    // Show search dialog
-    if (showSearchDialog) {
-        SearchDialog(
-            onDismiss = { showSearchDialog = false },
-            onSearch = { query ->
-                // Handle search based on current tab
-                when (selectedTab) {
-                    0 -> viewModel.searchLocations(query)
-                    1 -> { /* Order search handled in OrderManagementScreen */ }
-                    2 -> { /* Customer search handled in CustomerManagementScreen */ }
-                }
-                showSearchDialog = false
-            }
-        )
-    }
-    
-    
-    // Show location test dialog
+
     if (showLocationTestDialog) {
         LocationTestDialog(
             viewModel = viewModel,
             onDismiss = { showLocationTestDialog = false }
         )
     }
-    
-    // Show about dialog
-    if (showAboutDialog) {
-        AboutDialog(
-            onDismiss = { showAboutDialog = false }
+
+    locationPendingRename?.let { location ->
+        RenameLocationDialog(
+            currentName = location.name,
+            onDismiss = { locationPendingRename = null },
+            onConfirm = { newName ->
+                viewModel.renameLocation(location.id, newName)
+                locationPendingRename = null
+            }
         )
     }
-    
-    // Show data management dialog
-    if (showDataManagementDialog) {
-        DataManagementDialog(
-            onDismiss = { showDataManagementDialog = false },
-            viewModel = viewModel
-        )
-    }
-    
-    // Show settings dialog
-    if (showSettingsDialog) {
-        SettingsDialog(
-            onDismiss = { showSettingsDialog = false },
-            onDataManagementClick = { showDataManagementDialog = true },
-            onAboutClick = { showAboutDialog = true },
-            onLocationTestClick = { showLocationTestDialog = true }
+
+    locationPendingDelete?.let { location ->
+        DeleteLocationDialog(
+            locationName = location.name,
+            onDismiss = { locationPendingDelete = null },
+            onConfirm = {
+                viewModel.deleteLocation(location.id)
+                locationPendingDelete = null
+            }
         )
     }
 }
 
 /**
- * Tab item data class with enhanced properties.
+ * Turns a raw/technical error message into a short, user-facing one.
  */
-data class TabItem(
-    val title: String,
-    val icon: ImageVector,
-    val description: String = ""
-)
+private fun friendlyErrorMessage(raw: String): String {
+    return when {
+        raw.contains("permission", ignoreCase = true) -> "Location permission is needed"
+        raw.contains("location", ignoreCase = true) -> "Unable to get location"
+        else -> "Something went wrong"
+    }
+}
 
 /**
- * Locations tab content.
+ * Branded header: dark-red gradient surface holding the centered logo, with
+ * the location-test control top-left and a compact, expandable search
+ * control top-right.
  */
 @Composable
-fun LocationsTab(
-    viewModel: MainViewModel
+private fun AppHeader(
+    isSearchActive: Boolean,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onOpenSearch: () -> Unit,
+    onCloseSearch: () -> Unit,
+    onLocationTestClick: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val savedLocations by viewModel.savedLocations.collectAsState()
-    val context = LocalContext.current
-    
-    // Show error snackbar if there's an error
-    uiState.error?.let { error ->
-        LaunchedEffect(error) {
-            // Error will be cleared when user interacts with UI
-        }
-    }
-    
-    Column(
-        modifier = Modifier.fillMaxSize()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                brush = BrandRedGradient,
+                shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+            )
+            .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
-        // Error message
-        uiState.error?.let { error ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.weight(1f)
+        Column {
+            AnimatedContent(
+                targetState = isSearchActive,
+                transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(120)) },
+                label = "header_controls"
+            ) { searchActive ->
+                if (searchActive) {
+                    SearchField(
+                        query = searchQuery,
+                        onQueryChange = onSearchQueryChange,
+                        onClose = onCloseSearch
                     )
-                    TextButton(
-                        onClick = { viewModel.clearError() }
-                    ) {
-                        Text("Dismiss")
-                    }
-                }
-            }
-        }
-        
-        // Loading indicator
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        }
-        
-        // Success message for last saved location
-        uiState.lastSavedLocationId?.let { locationId ->
-            val location = savedLocations.find { it.id == locationId }
-            location?.let {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
+                } else {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        HeaderIconButton(
+                            icon = Icons.Default.LocationOn,
+                            contentDescription = "Test location services",
+                            onClick = onLocationTestClick
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Location '${it.name}' saved successfully!",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.weight(1f)
+                        HeaderIconButton(
+                            icon = Icons.Default.Search,
+                            contentDescription = "Search saved locations",
+                            onClick = onOpenSearch
                         )
-                        TextButton(
-                            onClick = { viewModel.clearLastSavedLocationId() }
-                        ) {
-                            Text("OK")
-                        }
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Image(
+                painter = painterResource(id = R.drawable.logo_uriel),
+                contentDescription = "Uriel Cafe logo",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 110.dp)
+                    .padding(horizontal = 32.dp, vertical = 8.dp)
+            )
         }
-        
-        // Locations list
-        if (savedLocations.isEmpty()) {
-            // Beautiful empty state
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    // Gradient background for empty state
-                    Surface(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
+    }
+}
+
+@Composable
+private fun HeaderIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.size(40.dp),
+        shape = CircleShape,
+        color = Color.White.copy(alpha = 0.16f)
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp),
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = null,
+                tint = TextSecondary,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(modifier = Modifier.weight(1f)) {
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
+                    cursorBrush = SolidColor(BrandRed700),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                    decorationBox = { innerTextField ->
+                        if (query.isEmpty()) {
                             Text(
-                                text = "📍",
-                                style = MaterialTheme.typography.displayLarge,
-                                color = MaterialTheme.colorScheme.primary
+                                "Search locations",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextSecondary
                             )
                         }
+                        innerTextField()
                     }
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    Text(
-                        text = "No delivery locations yet",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "Start building your delivery network by saving customer locations",
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = CafeGold.copy(alpha = 0.1f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "💡 Quick Start Tips",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = CafeGold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "• Tap the 📍 button to save current location\n• Add customer addresses for easy routing\n• Use GPS coordinates for precise deliveries",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
+                )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(savedLocations) { location ->
-                    LocationItem(
-                        location = location,
-                        onLocationClick = { 
-                            viewModel.openLocationInMaps(location)?.let { intent ->
-                                context.startActivity(intent)
-                            }
-                        },
-                        onDeleteClick = { 
-                            viewModel.deleteLocation(location.id)
-                        }
-                    )
-                }
+            IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Close search",
+                    tint = TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }
 }
 
-
 /**
- * Enhanced settings dialog for app configuration.
+ * A single saved-location row: a small numbered badge, the location name,
+ * and a subtle delete control. Tapping opens Google Maps; long-pressing
+ * opens the rename dialog.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun SettingsDialog(
-    onDismiss: () -> Unit,
-    onDataManagementClick: () -> Unit = {},
-    onAboutClick: () -> Unit = {},
-    onLocationTestClick: () -> Unit = {}
+private fun LocationRow(
+    index: Int,
+    location: LocationEntity,
+    onClick: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Settings")
-        },
-        text = {
-            Column {
-                Text("App Configuration", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Location settings
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction("Rename") { onRename(); true }
+                )
+            }
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onRename
+            ),
+        shape = RoundedCornerShape(16.dp),
+        color = SurfaceCard,
+        tonalElevation = 1.dp,
+        shadowElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(30.dp),
+                shape = CircleShape,
+                color = BrandRedTint
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "${index + 1}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = BrandRed700
                     )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp)
-                    ) {
-                        Text(
-                            text = "Location Services",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "• GPS location tracking",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "• Google Maps integration",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // App features
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp)
-                    ) {
-                        Text(
-                            text = "Features",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "• Location management",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "• Order tracking",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "• Customer management",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "• Route optimization",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Action buttons
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDataManagementClick,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Data")
-                    }
-                    
-                    OutlinedButton(
-                        onClick = onAboutClick,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("About")
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Testing buttons
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onLocationTestClick,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Test Location")
-                    }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Text(
+                text = location.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete ${location.name}",
+                    tint = TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
-    )
+    }
+}
+
+@Composable
+private fun EmptyLocationsState(isSearching: Boolean) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(64.dp),
+                shape = CircleShape,
+                color = BrandRedTint
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = BrandRed700,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = if (isSearching) "No matching locations" else "No saved locations yet",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+                textAlign = TextAlign.Center
+            )
+            if (!isSearching) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Tap + to save your current location",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
 }
 
 /**
- * About dialog.
- */
-@Composable
-fun AboutDialog(
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("About Uriel Cafe Delivery")
-        },
-        text = {
-            Column {
-                Text(
-                    text = "Version 1.0.0",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "A comprehensive delivery management app for Uriel Cafe. Manage locations, track orders, maintain customer relationships, and optimize delivery routes.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Features:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text("• Save and manage delivery locations")
-                Text("• Track order status and progress")
-                Text("• Maintain customer database")
-                Text("• Optimize delivery routes")
-                Text("• Google Maps integration")
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("OK")
-            }
-        }
-    )
-}
-
-/**
- * Location test dialog for testing and debugging location functionality.
+ * Dialog for testing location services. Shows the raw result only; no
+ * technical instructions or debug detail.
  */
 @Composable
 fun LocationTestDialog(
@@ -689,218 +506,137 @@ fun LocationTestDialog(
     var currentLocation by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Location Test")
-        },
-        text = {
-            Column {
-                Text("Test your device's location capabilities:")
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                if (isLoading) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Getting location...")
-                    }
-                } else if (currentLocation != null) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
+
+    PremiumAlertDialog(
+        onDismiss = onDismiss,
+        title = "Location Test",
+        content = {
+            when {
+                isLoading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = BrandRed700
                         )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp)
-                        ) {
-                            Text(
-                                text = "Current Location:",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("Latitude: ${String.format("%.6f", currentLocation!!.first)}")
-                            Text("Longitude: ${String.format("%.6f", currentLocation!!.second)}")
-                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Getting location…", color = TextSecondary)
                     }
-                } else if (error != null) {
+                }
+                currentLocation != null -> {
                     Text(
-                        text = "Error: $error",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                } else {
-                    Text("Tap 'Get Location' to test location services")
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "Instructions:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text("1. Move to a different location")
-                Text("2. Tap 'Get Location' to see current coordinates")
-                Text("3. Save a location with a different name")
-                Text("4. Check if coordinates are different")
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    isLoading = true
-                    error = null
-                    // Get current location
-                    viewModel.getCurrentLocationForTesting(
-                        onSuccess = { lat, lng ->
-                            currentLocation = Pair(lat, lng)
-                            isLoading = false
-                        },
-                        onError = { errorMessage ->
-                            error = errorMessage
-                            isLoading = false
-                        }
+                        text = "Lat ${String.format("%.5f", currentLocation!!.first)}, " +
+                            "Lng ${String.format("%.5f", currentLocation!!.second)}",
+                        color = TextPrimary
                     )
                 }
-            ) {
-                Text("Get Location")
+                error != null -> {
+                    Text(
+                        text = "Unable to get location",
+                        color = ErrorRed
+                    )
+                }
+                else -> {
+                    Text(
+                        text = "Check that location services are working correctly.",
+                        color = TextSecondary
+                    )
+                }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
+        confirmText = "Get Location",
+        onConfirm = {
+            isLoading = true
+            error = null
+            viewModel.getCurrentLocationForTesting(
+                onSuccess = { lat, lng ->
+                    currentLocation = Pair(lat, lng)
+                    isLoading = false
+                },
+                onError = { message ->
+                    error = message
+                    isLoading = false
+                }
+            )
+        },
+        confirmClosesDialog = false,
+        dismissText = "Close"
     )
 }
 
 /**
- * Search dialog for searching across different tabs.
+ * Rename dialog: matches the app's minimalist dialog style.
  */
 @Composable
-fun SearchDialog(
+fun RenameLocationDialog(
+    currentName: String,
     onDismiss: () -> Unit,
-    onSearch: (String) -> Unit
+    onConfirm: (String) -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Search")
-        },
-        text = {
+    var name by remember { mutableStateOf(currentName) }
+    var isError by remember { mutableStateOf(false) }
+
+    PremiumAlertDialog(
+        onDismiss = onDismiss,
+        title = "Rename Location",
+        content = {
             Column {
-                Text("Enter your search query:")
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
                 OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text("Search term") },
-                    placeholder = { Text("e.g., customer name, location, order number") },
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        isError = false
+                    },
                     singleLine = true,
+                    isError = isError,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = premiumTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (searchQuery.isNotEmpty()) {
-                        onSearch(searchQuery)
-                    }
+                if (isError) {
+                    Text(
+                        text = "Enter a name",
+                        color = ErrorRed,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
-            ) {
-                Text("Search")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+        confirmText = "Save",
+        onConfirm = {
+            if (name.trim().isEmpty()) {
+                isError = true
+            } else {
+                onConfirm(name.trim())
             }
-        }
+        },
+        confirmClosesDialog = false,
+        dismissText = "Cancel"
     )
 }
 
 /**
- * Data management dialog.
+ * Delete confirmation dialog.
  */
 @Composable
-fun DataManagementDialog(
+fun DeleteLocationDialog(
+    locationName: String,
     onDismiss: () -> Unit,
-    viewModel: MainViewModel? = null
+    onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Data Management")
+    PremiumAlertDialog(
+        onDismiss = onDismiss,
+        title = "Delete location?",
+        content = {
+            Text(
+                text = "Are you sure you want to delete \"$locationName\"?",
+                color = TextSecondary
+            )
         },
-        text = {
-            Column {
-                Text(
-                    text = "Manage your app data:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Text("• All data is stored locally on your device")
-                Text("• No data is sent to external servers")
-                Text("• You can export/import data (coming soon)")
-                
-                if (viewModel != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Testing Tools:",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text("• Clear all locations for testing")
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Text(
-                    text = "Data includes:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text("• Saved delivery locations")
-                Text("• Order history and status")
-                Text("• Customer information")
-                Text("• Route planning data")
-            }
-        },
-        confirmButton = {
-            if (viewModel != null) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.clearAllLocations()
-                            onDismiss()
-                        }
-                    ) {
-                        Text("Clear All Locations")
-                    }
-                    TextButton(onClick = onDismiss) {
-                        Text("OK")
-                    }
-                }
-            } else {
-                TextButton(onClick = onDismiss) {
-                    Text("OK")
-                }
-            }
-        }
+        confirmText = "Delete",
+        confirmColor = ErrorRed,
+        onConfirm = onConfirm,
+        dismissText = "Cancel"
     )
 }
-
