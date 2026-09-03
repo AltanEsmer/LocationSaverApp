@@ -8,6 +8,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,6 +32,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -69,7 +71,9 @@ fun MainScreenAdvanced(
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
+    var showAddChooser by remember { mutableStateOf(false) }
     var showSaveDialog by remember { mutableStateOf(false) }
+    var showAddFromLinkDialog by remember { mutableStateOf(false) }
     var showLocationTestDialog by remember { mutableStateOf(false) }
     var locationPendingDelete by remember { mutableStateOf<LocationEntity?>(null) }
     var locationPendingRename by remember { mutableStateOf<LocationEntity?>(null) }
@@ -105,7 +109,7 @@ fun MainScreenAdvanced(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showSaveDialog = true },
+                onClick = { showAddChooser = true },
                 shape = CircleShape,
                 containerColor = BrandRed700,
                 contentColor = Color.White,
@@ -161,6 +165,20 @@ fun MainScreenAdvanced(
         }
     }
 
+    if (showAddChooser) {
+        AddLocationChooserDialog(
+            onDismiss = { showAddChooser = false },
+            onUseCurrentLocation = {
+                showAddChooser = false
+                showSaveDialog = true
+            },
+            onPasteLink = {
+                showAddChooser = false
+                showAddFromLinkDialog = true
+            }
+        )
+    }
+
     if (showSaveDialog) {
         SaveLocationDialog(
             isSaving = uiState.isLoading,
@@ -168,6 +186,16 @@ fun MainScreenAdvanced(
             onSave = { name ->
                 viewModel.saveCurrentLocation(name)
                 showSaveDialog = false
+            }
+        )
+    }
+
+    if (showAddFromLinkDialog) {
+        AddLocationFromLinkDialog(
+            onDismiss = { showAddFromLinkDialog = false },
+            onSave = { name, link ->
+                viewModel.saveLocationFromLink(name, link)
+                showAddFromLinkDialog = false
             }
         )
     }
@@ -208,8 +236,86 @@ fun MainScreenAdvanced(
 private fun friendlyErrorMessage(raw: String): String {
     return when {
         raw.contains("permission", ignoreCase = true) -> "Location permission is needed"
+        raw.contains("find a location in that link", ignoreCase = true) -> raw
+        raw.contains("link", ignoreCase = true) -> "Couldn't read that link"
         raw.contains("location", ignoreCase = true) -> "Unable to get location"
         else -> "Something went wrong"
+    }
+}
+
+/**
+ * Small chooser shown from the "+" button: save the device's current
+ * location, or add one by pasting a Google Maps link.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddLocationChooserDialog(
+    onDismiss: () -> Unit,
+    onUseCurrentLocation: () -> Unit,
+    onPasteLink: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SurfaceCard,
+        shape = RoundedCornerShape(24.dp),
+        title = {
+            Text(
+                text = "Add Location",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+        },
+        text = {
+            Column {
+                AddOptionRow(
+                    title = "Use current location",
+                    subtitle = "Save where you are right now",
+                    onClick = onUseCurrentLocation
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                AddOptionRow(
+                    title = "Paste a Maps link",
+                    subtitle = "Add a place shared from Google Maps",
+                    onClick = onPasteLink
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextSecondary)
+            }
+        }
+    )
+}
+
+@Composable
+private fun AddOptionRow(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
+        color = Color.Transparent
+    ) {
+        Column(modifier = Modifier.padding(vertical = 10.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
     }
 }
 
@@ -484,7 +590,7 @@ private fun EmptyLocationsState(isSearching: Boolean) {
             if (!isSearching) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Tap + to save your current location",
+                    text = "Tap + to save your current location or paste a Maps link",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary,
                     textAlign = TextAlign.Center

@@ -9,6 +9,7 @@ import com.example.locationtrackerapp.data.LocationDatabase
 import com.example.locationtrackerapp.data.LocationEntity
 import com.example.locationtrackerapp.repository.LocationRepository
 import com.example.locationtrackerapp.service.LocationService
+import com.example.locationtrackerapp.service.MapsLinkResolver
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -142,6 +143,59 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    /**
+     * Save a location from a pasted Google Maps link (including shortened
+     * maps.app.goo.gl links) or a plain "lat,lng" pair. The link is
+     * resolved to coordinates in the background; success/failure is
+     * reported the same way as [saveCurrentLocation] via [uiState].
+     *
+     * @param name Optional user-provided name; falls back to a place name
+     * extracted from the link, or a generic name if none is available.
+     * @param link The pasted Google Maps URL or "lat,lng" text.
+     */
+    fun saveLocationFromLink(name: String, link: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+
+            try {
+                val resolved = MapsLinkResolver.resolve(link)
+                if (resolved == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Couldn't find a location in that link"
+                    )
+                    return@launch
+                }
+
+                val finalName = name.trim().ifEmpty { resolved.placeName ?: "Saved Location" }
+
+                android.util.Log.d(
+                    "LocationSaver",
+                    "Saving location from link: $finalName at ${resolved.latitude}, ${resolved.longitude}"
+                )
+
+                val locationId = locationRepository.saveLocation(
+                    name = finalName,
+                    latitude = resolved.latitude,
+                    longitude = resolved.longitude,
+                    address = resolved.placeName ?: ""
+                )
+                loadSavedLocations()
+
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = null,
+                    lastSavedLocationId = locationId
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Failed to read location link: ${e.message}"
+                )
+            }
+        }
+    }
+
     /**
      * Open a saved location in Google Maps.
      * 

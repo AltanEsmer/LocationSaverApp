@@ -28,14 +28,16 @@ class LocationRepository(private val locationDao: LocationDao) {
      * @param name User-defined name for the location
      * @param latitude Latitude coordinate
      * @param longitude Longitude coordinate
+     * @param address Optional address/place-name text for the location
      * @return The ID of the saved location
      */
-    suspend fun saveLocation(name: String, latitude: Double, longitude: Double): Long {
+    suspend fun saveLocation(name: String, latitude: Double, longitude: Double, address: String = ""): Long {
         android.util.Log.d("LocationRepository", "Saving location: $name at $latitude, $longitude")
         val location = LocationEntity(
             name = name,
             latitude = latitude,
-            longitude = longitude
+            longitude = longitude,
+            address = address
         )
         val locationId = locationDao.insertLocation(location)
         android.util.Log.d("LocationRepository", "Location saved with ID: $locationId")
